@@ -114,8 +114,8 @@ class YieldCurve:
             return np.array(list(map(self.__get_rate, period)))
 
     def __discount_periods(self, start_period: int, end_period: int):
-        start_discount = discount_rate(self.get_rate(start_period), start_period)
-        end_discount = discount_rate(self.get_rate(end_period), end_period)
+        start_discount = discount_rate(self.get_rate(start_period), start_period / self.periods_per_year)
+        end_discount = discount_rate(self.get_rate(end_period), end_period / self.periods_per_year)
         assert start_discount > end_discount
         return end_discount / start_discount
 

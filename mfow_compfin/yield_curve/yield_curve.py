@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List
+from typing import List, Union
 from functools import lru_cache
 from .interest import interpolate_rate, discount_rate
 from .yield_calendar import YieldCalendar
@@ -135,7 +135,28 @@ class YieldCurve:
         if isinstance(end, datetime):
             end = self.calendar.get_period(end)
 
+        if start == end:
+            return 1.0
+
         if isinstance(start, int) and isinstance(end, int):
             return self.__discount_periods(start, end)
         else:
             raise RuntimeError('Unsupported combination of start and end types.')
+
+    def __single_cashflow_npv(self, cashflow: float, timestamp: Union[int, datetime]) -> float:
+        discount = self.discount(timestamp)
+        return cashflow * discount
+
+    def npv(self, **kwargs) -> float:
+        cashflows: List[float] = kwargs.get('cashflows')
+        timestamps: List[Union[datetime, int]] = kwargs.get('timestamps')
+        assert len(cashflows) == len(timestamps)
+
+        # the time at which the value is measured
+        clock: Union[datetime, int] = kwargs.get('clock', 0)
+
+        cashflow_values = np.sum(list(map(lambda x: self.__single_cashflow_npv(x[0], x[1]),
+                                          zip(cashflows, timestamps))))
+
+        discount = self.discount(clock)
+        return cashflow_values / discount

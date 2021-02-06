@@ -2,6 +2,8 @@ import numpy as np
 from typing import List
 from functools import lru_cache
 from .interest import interpolate_rate, discount_rate
+from .yield_calendar import YieldCalendar
+from datetime import datetime
 
 
 class YieldCurve:
@@ -37,6 +39,10 @@ class YieldCurve:
         self.__period_lookup = dict()
         for i in range(len(self.periods)):
             self.__period_lookup[self.periods[i]] = i
+
+        self.calendar: YieldCalendar = kwargs.get('calendar')
+        if self.calendar is not None:
+            assert isinstance(self.calendar, YieldCalendar)
 
     def __get_highest_prior_index(self, period: int, min: int, max: int) -> int:
         if min == max:
@@ -107,8 +113,29 @@ class YieldCurve:
             assert len(period.shape) == 1
             return np.array(list(map(self.__get_rate, period)))
 
-    def discount(self, start_period: int, end_period: int):
+    def __discount_periods(self, start_period: int, end_period: int):
         start_discount = discount_rate(self.get_rate(start_period), start_period)
         end_discount = discount_rate(self.get_rate(end_period), end_period)
         assert start_discount > end_discount
         return end_discount / start_discount
+
+    def discount(self, *args):
+        if len(args) == 1:
+            start = 0
+            end = args[0]
+        elif len(args) == 2:
+            start = args[0]
+            end = args[1]
+        else:
+            raise RuntimeError('Unknown argument combination.')
+
+        if isinstance(start, datetime):
+            start = self.calendar.get_period(start)
+
+        if isinstance(end, datetime):
+            end = self.calendar.get_period(end)
+
+        if isinstance(start, int) and isinstance(end, int):
+            return self.__discount_periods(start, end)
+        else:
+            raise RuntimeError('Unsupported combination of start and end types.')
